@@ -1,0 +1,89 @@
+#same optimisation as last time
+max_steps = 200000
+batch_size = 32
+lossi = []
+ud = []
+
+for i in range(max_steps):
+    #mini batch construct
+    ix = torch.randint(0, Xtr.shape[0], (batch_size,), generator=g)
+    Xb, Yb = Xtr[ix], Ytr[ix] #batch X,Y
+    
+    #forward pass
+    emb = C[Xb] #embed the characters into vectors
+    x = emb.view(emb.shape[0], -1) #concatenate the vectors 
+    for layer in layers:
+        x = layer(x)
+    loss = F.cross_entropy(x, Yb) #loss funciton
+    
+    #backward pass
+   # for layer in layers:
+    #    layer.out.retain_grad() #AFTER DEBUG: would take out retain_graph
+    for p in parameters:
+        p.grad = None
+    loss.backward()
+    
+    lr = 0.1 if i < 100000 else 0.01 #step learning rate decay
+    for p in parameters:
+        p.data += lr * p.grad
+        
+    #track stats
+    if i % 10000 == 0: #print every once in a while
+        print(f'{i:7d}/{max_steps:7d} {loss.item():.4f}')
+    lossi.append(loss.log10().item())
+    with torch.no_grad():
+        ud.append([(lr*p.grad.std()/ p.data.std()).log10().item() for p in parameters])
+   # if i >= 1000:
+    #    print(f'{i:7d}/{max_steps:7d} {loss.item():.4f}')
+
+     #   break #AFTER_DEBUG would take out obviously to run full optimization
+
+-----------------------------------------------------------------------------
+Andrej Karpathys code:
+
+# same optimization as last time
+max_steps = 200000
+batch_size = 32
+lossi = []
+ud = []
+
+for i in range(max_steps):
+  
+  # minibatch construct
+  ix = torch.randint(0, Xtr.shape[0], (batch_size,), generator=g)
+  Xb, Yb = Xtr[ix], Ytr[ix] # batch X,Y
+  
+  # forward pass
+  emb = C[Xb] # embed the characters into vectors
+  x = emb.view(emb.shape[0], -1) # concatenate the vectors
+  for layer in layers:
+    x = layer(x)
+  loss = F.cross_entropy(x, Yb) # loss function
+  
+  # backward pass
+  for layer in layers:
+    layer.out.retain_grad() # AFTER_DEBUG: would take out retain_graph
+  for p in parameters:
+    p.grad = None
+  loss.backward()
+  
+  # update
+  lr = 0.1 if i < 150000 else 0.01 # step learning rate decay
+  for p in parameters:
+    p.data += -lr * p.grad
+
+  # track stats
+  if i % 10000 == 0: # print every once in a while
+    print(f'{i:7d}/{max_steps:7d}: {loss.item():.4f}')
+  lossi.append(loss.log10().item())
+  with torch.no_grad():
+    ud.append([((lr*p.grad).std() / p.data.std()).log10().item() for p in parameters])
+
+  #if i >= 1000:
+   # break # AFTER_DEBUG: would take out obviously to run full optimization
+
+
+
+
+
+
